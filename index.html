@@ -1,0 +1,961 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Walk Planner" />
+  <meta name="theme-color" content="#080f08" />
+  <link rel="manifest" href="./manifest.json" />
+  <link rel="apple-touch-icon" href="./icons/icon-192.png" />
+  <title>Dog Walk Planner</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #080f08;
+      --bg2:       #0d1a0d;
+      --bg3:       #111f11;
+      --border:    #1e2e1e;
+      --border2:   #2a3e2a;
+      --green:     #4ade80;
+      --green-dim: #22c55e;
+      --muted:     #6a8a6a;
+      --muted2:    #4a644a;
+      --text:      #e8f5e8;
+      --text2:     #b8d4b8;
+      --blue:      #60a5fa;
+      --amber:     #fbbf24;
+      --red:       #f87171;
+      --orange:    #fb923c;
+      --purple:    #c084fc;
+    }
+
+    html, body { height: 100%; }
+    body {
+      background: var(--bg); color: var(--text);
+      font-family: -apple-system, 'Inter', system-ui, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      overscroll-behavior: none;
+    }
+
+    #app { display: flex; flex-direction: column; min-height: 100vh; }
+
+    header {
+      background: linear-gradient(180deg, #0d2010 0%, var(--bg) 100%);
+      border-bottom: 1px solid var(--border);
+      padding: max(20px, env(safe-area-inset-top)) 20px 16px;
+      position: sticky; top: 0; z-index: 10;
+      backdrop-filter: blur(8px);
+    }
+    .header-inner { max-width: 480px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; }
+    .brand { display: flex; align-items: center; gap: 10px; }
+    .brand-icon { font-size: 26px; line-height: 1; }
+    .brand-title { font-size: 20px; font-weight: 800; letter-spacing: -0.5px; }
+    .brand-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+    .settings-btn {
+      width: 36px; height: 36px; border-radius: 50%;
+      border: 1px solid var(--border2); background: var(--bg2);
+      color: var(--muted); font-size: 16px; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: border-color 0.2s, color 0.2s; flex-shrink: 0;
+    }
+    .settings-btn:hover { border-color: var(--green); color: var(--green); }
+
+    main { flex: 1; padding: 0 16px 40px; max-width: 480px; margin: 0 auto; width: 100%; }
+
+    /* Day tabs */
+    .day-tabs { display: flex; gap: 8px; margin: 16px 0; }
+    .day-tab {
+      flex: 1; padding: 9px 0; border-radius: 10px;
+      border: 1px solid var(--border); background: transparent;
+      color: var(--muted); font-size: 13px; font-weight: 600;
+      cursor: pointer; transition: all 0.15s;
+    }
+    .day-tab.active { border-color: var(--green); background: #0f2410; color: var(--green); }
+    .day-tab:not(.active):hover { border-color: var(--border2); color: var(--text2); }
+
+    .section-label {
+      font-size: 11px; font-weight: 700; color: var(--muted2);
+      text-transform: uppercase; letter-spacing: 1px; margin: 20px 0 10px;
+    }
+
+    /* Walk slots */
+    .walk-slot {
+      background: var(--bg2); border: 1px solid var(--border);
+      border-radius: 14px; padding: 14px 16px;
+      display: flex; flex-direction: column; gap: 8px;
+    }
+    .walk-slot.best { background: #0c1f0c; border-color: var(--green); }
+    .slot-header { display: flex; justify-content: space-between; align-items: center; }
+    .slot-time { display: flex; align-items: center; gap: 8px; }
+    .slot-medal { font-size: 18px; line-height: 1; }
+    .slot-hour { font-size: 18px; font-weight: 800; letter-spacing: -0.5px; }
+    .slot-badge {
+      font-size: 10px; font-weight: 800; padding: 3px 9px;
+      border-radius: 20px; text-transform: uppercase; letter-spacing: 0.5px;
+    }
+    .badge-ideal { background: #14532d; color: var(--green); }
+    .badge-good  { background: #1e3a5f; color: var(--blue); }
+    .badge-fair  { background: #431407; color: var(--orange); }
+    .badge-poor  { background: #3b0c0c; color: var(--red); }
+
+    .score-row { display: flex; align-items: center; gap: 10px; }
+    .score-track { flex: 1; height: 5px; border-radius: 3px; background: #1a2a1a; overflow: hidden; }
+    .score-fill { height: 100%; border-radius: 3px; transition: width 0.5s ease; }
+    .score-pct { font-size: 12px; font-weight: 700; min-width: 34px; text-align: right; }
+
+    .slot-tags { display: flex; gap: 6px; flex-wrap: wrap; }
+    .slot-tag { font-size: 12px; color: var(--muted); background: #111f11; padding: 3px 9px; border-radius: 10px; }
+
+    /* Kit card */
+    .kit-card {
+      background: var(--bg2); border: 1px solid var(--border);
+      border-radius: 14px; padding: 14px 16px;
+    }
+    .kit-title { font-size: 13px; font-weight: 700; color: var(--text2); margin-bottom: 10px; }
+    .kit-items { display: flex; flex-wrap: wrap; gap: 8px; }
+    .kit-item {
+      display: flex; align-items: center; gap: 6px;
+      background: var(--bg3); border: 1px solid var(--border);
+      border-radius: 10px; padding: 6px 10px;
+      font-size: 13px; color: var(--text2);
+    }
+    .kit-item.urgent { border-color: var(--amber); background: #1f1800; color: var(--amber); }
+    .kit-item.warn   { border-color: #3b2000; background: #1a1000; color: var(--orange); }
+
+    /* Glance chart */
+    .glance-card {
+      background: var(--bg2); border: 1px solid var(--border);
+      border-radius: 14px; padding: 14px 12px 12px;
+    }
+    .glance-bars { display: flex; align-items: flex-end; gap: 2px; height: 72px; }
+    .glance-bar { flex: 1; border-radius: 3px 3px 0 0; min-height: 4px; cursor: default; }
+    .glance-labels { display: flex; margin-top: 6px; }
+    .glance-label-slot { flex: 1; display: flex; justify-content: center; }
+    .glance-label-slot span { font-size: 9px; color: var(--muted2); }
+    .glance-legend { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border); }
+    .legend-item { display: flex; align-items: center; gap: 5px; }
+    .legend-swatch { width: 10px; height: 10px; border-radius: 2px; }
+    .legend-text { font-size: 11px; color: var(--muted2); }
+
+    /* Safety card */
+    .safety-card {
+      background: var(--bg2); border: 1px solid var(--border);
+      border-radius: 14px; padding: 14px;
+      display: flex; flex-direction: column; gap: 10px;
+    }
+    .safety-row { display: flex; gap: 10px; align-items: flex-start; }
+    .safety-icon { font-size: 15px; flex-shrink: 0; margin-top: 1px; }
+    .safety-text { font-size: 13px; color: #7a9a7a; line-height: 1.5; }
+
+    .no-walk {
+      background: #1a0808; border: 1px solid #3b1414;
+      border-radius: 14px; padding: 16px;
+      color: var(--red); font-size: 14px; line-height: 1.5;
+    }
+
+    /* State screens */
+    .state-screen {
+      display: flex; flex-direction: column; align-items: center;
+      justify-content: center; min-height: 60vh; gap: 12px;
+    }
+    .state-icon { font-size: 40px; }
+    .state-text { font-size: 15px; color: var(--muted); text-align: center; max-width: 280px; line-height: 1.5; }
+    .state-sub { font-size: 13px; color: var(--muted2); text-align: center; }
+
+    /* Modal */
+    .modal-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.75);
+      display: flex; align-items: flex-end; justify-content: center;
+      z-index: 100; opacity: 0; pointer-events: none; transition: opacity 0.2s;
+    }
+    .modal-overlay.open { opacity: 1; pointer-events: all; }
+    .modal {
+      background: #0a180a; border: 1px solid var(--border2);
+      border-radius: 20px 20px 0 0;
+      padding: 0 0 max(24px, env(safe-area-inset-bottom)) 0;
+      width: 100%; max-width: 480px;
+      transform: translateY(100%); transition: transform 0.25s ease;
+      max-height: 90vh; display: flex; flex-direction: column;
+    }
+    .modal-overlay.open .modal { transform: translateY(0); }
+    .modal-handle { width: 36px; height: 4px; background: var(--border2); border-radius: 2px; margin: 12px auto 0; flex-shrink: 0; }
+    .modal-header { padding: 16px 20px 0; flex-shrink: 0; }
+    .modal-title { font-size: 17px; font-weight: 700; color: var(--text); margin-bottom: 14px; }
+
+    /* Modal tabs */
+    .modal-tabs { display: flex; gap: 6px; padding-bottom: 14px; border-bottom: 1px solid var(--border); }
+    .modal-tab {
+      flex: 1; padding: 7px 0; border-radius: 8px;
+      border: 1px solid var(--border); background: transparent;
+      color: var(--muted); font-size: 12px; font-weight: 600;
+      cursor: pointer; transition: all 0.15s;
+    }
+    .modal-tab.active { border-color: var(--green); background: #0f2410; color: var(--green); }
+
+    .modal-body {
+      padding: 18px 20px; overflow-y: auto;
+      display: flex; flex-direction: column; gap: 18px;
+      flex: 1;
+    }
+
+    .setting-group { display: flex; flex-direction: column; gap: 8px; }
+    .setting-label { font-size: 12px; font-weight: 700; color: var(--muted2); text-transform: uppercase; letter-spacing: 0.8px; }
+    .setting-desc  { font-size: 12px; color: var(--muted); margin-top: -4px; }
+
+    /* Time pickers */
+    .time-row { display: flex; gap: 10px; align-items: center; }
+    .time-select {
+      flex: 1; padding: 10px 12px; border-radius: 10px;
+      border: 1px solid var(--border2); background: var(--bg);
+      color: var(--text); font-size: 14px; font-weight: 600;
+      outline: none; appearance: none; cursor: pointer;
+      transition: border-color 0.15s;
+    }
+    .time-select:focus { border-color: var(--green); }
+    .time-arrow { color: var(--muted2); font-size: 12px; flex-shrink: 0; }
+
+    /* Number input */
+    .num-row { display: flex; gap: 8px; align-items: center; }
+    .num-btn {
+      width: 36px; height: 36px; border-radius: 8px;
+      border: 1px solid var(--border2); background: var(--bg2);
+      color: var(--text); font-size: 20px; font-weight: 300;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      transition: border-color 0.15s; flex-shrink: 0;
+      line-height: 1;
+    }
+    .num-btn:hover { border-color: var(--green); }
+    .num-val { font-size: 16px; font-weight: 700; color: var(--green); min-width: 28px; text-align: center; }
+
+    /* Toggle */
+    .toggle-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .toggle-info { display: flex; flex-direction: column; gap: 2px; }
+    .toggle-name { font-size: 14px; font-weight: 600; color: var(--text2); }
+    .toggle-sub  { font-size: 12px; color: var(--muted); }
+    .toggle {
+      position: relative; width: 44px; height: 26px; flex-shrink: 0;
+    }
+    .toggle input { opacity: 0; width: 0; height: 0; }
+    .toggle-track {
+      position: absolute; inset: 0; border-radius: 13px;
+      background: var(--border2); cursor: pointer; transition: background 0.2s;
+    }
+    .toggle input:checked + .toggle-track { background: var(--green-dim); }
+    .toggle-thumb {
+      position: absolute; top: 3px; left: 3px;
+      width: 20px; height: 20px; border-radius: 50%;
+      background: #fff; transition: transform 0.2s;
+      pointer-events: none;
+    }
+    .toggle input:checked ~ .toggle-thumb { transform: translateX(18px); }
+
+    /* Select pill group */
+    .pill-group { display: flex; flex-wrap: wrap; gap: 6px; }
+    .pill {
+      padding: 6px 13px; border-radius: 20px;
+      border: 1px solid var(--border2); background: transparent;
+      color: var(--muted); font-size: 13px; font-weight: 500;
+      cursor: pointer; transition: all 0.15s;
+    }
+    .pill.active { border-color: var(--green); background: #0f2410; color: var(--green); }
+    .pill:not(.active):hover { border-color: var(--border2); color: var(--text2); }
+
+    /* Location specific */
+    .loc-btn {
+      width: 100%; padding: 13px 16px; border-radius: 12px;
+      border: 1px solid var(--border2); background: var(--bg3);
+      color: var(--text2); font-size: 14px; font-weight: 600;
+      cursor: pointer; display: flex; align-items: center; gap: 10px;
+      transition: all 0.15s; text-align: left;
+    }
+    .loc-btn:hover { border-color: var(--green-dim); color: var(--text); }
+    .loc-icon { font-size: 18px; }
+    .loc-desc { font-size: 11px; color: var(--muted); font-weight: 400; margin-top: 1px; }
+    .postcode-row { display: flex; gap: 8px; }
+    .postcode-input {
+      flex: 1; padding: 11px 14px; border-radius: 10px;
+      border: 1px solid var(--border2); background: var(--bg);
+      color: var(--text); font-size: 15px; font-weight: 600;
+      letter-spacing: 1px; text-transform: uppercase; outline: none;
+      transition: border-color 0.15s;
+    }
+    .postcode-input:focus { border-color: var(--green); }
+    .postcode-input::placeholder { color: var(--muted2); font-weight: 400; letter-spacing: 0; text-transform: none; }
+    .postcode-go {
+      padding: 11px 18px; border-radius: 10px;
+      border: none; background: var(--green); color: #020f02;
+      font-size: 14px; font-weight: 700; cursor: pointer; transition: opacity 0.15s;
+    }
+    .postcode-go:hover { opacity: 0.85; }
+    .postcode-go:disabled { opacity: 0.4; cursor: default; }
+    .current-loc {
+      font-size: 13px; color: var(--muted); padding: 12px 14px;
+      background: var(--bg); border: 1px solid var(--border);
+      border-radius: 10px; line-height: 1.5;
+    }
+    .current-loc strong { color: var(--green); }
+    .error-hint { font-size: 12px; color: var(--red); }
+
+    /* Spinner */
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spinner {
+      width: 20px; height: 20px; border: 2px solid var(--border2);
+      border-top-color: var(--green); border-radius: 50%;
+      animation: spin 0.7s linear infinite; flex-shrink: 0;
+    }
+
+    button { font-family: inherit; }
+
+    /* Retry btn */
+    .retry-btn {
+      margin-top: 8px; padding: 10px 20px; border-radius: 10px;
+      border: 1px solid var(--border2); background: var(--bg2);
+      color: var(--text2); font-size: 14px; cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+// ══════════════════════════════════════════════════════════
+//  DEFAULT CONFIG
+// ══════════════════════════════════════════════════════════
+const DEFAULT_CONFIG = {
+  earliestHour:    7,    // don't suggest walks before this
+  latestHour:      21,   // don't suggest walks after this
+  numSlots:        3,    // how many top slots to show
+  avoidDark:       true, // penalise pre-sunrise / post-sunset
+  numDogs:         1,
+  dogSize:         'medium',   // small | medium | large
+  dogCoatType:     'medium',   // thin | medium | thick
+  ownerRainSens:   'medium',   // low | medium | high  (how much you hate rain)
+};
+
+// ══════════════════════════════════════════════════════════
+//  STATE
+// ══════════════════════════════════════════════════════════
+const state = {
+  location:        null,
+  weather:         null,
+  loading:         false,
+  error:           null,
+  locError:        null,
+  day:             0,
+  modalOpen:       false,
+  modalTab:        'location',  // location | schedule | prefs
+  postcodeInput:   '',
+  postcodeLoading: false,
+  config:          { ...DEFAULT_CONFIG },
+};
+
+// ── Persist ──────────────────────────────────────────────
+function loadState() {
+  try {
+    const loc = localStorage.getItem('dwp-location');
+    if (loc) state.location = JSON.parse(loc);
+    const cfg = localStorage.getItem('dwp-config');
+    if (cfg) state.config = { ...DEFAULT_CONFIG, ...JSON.parse(cfg) };
+  } catch {}
+}
+function saveLocation(loc) {
+  state.location = loc;
+  try { localStorage.setItem('dwp-location', JSON.stringify(loc)); } catch {}
+}
+function saveConfig() {
+  try { localStorage.setItem('dwp-config', JSON.stringify(state.config)); } catch {}
+}
+
+// ══════════════════════════════════════════════════════════
+//  HELPERS
+// ══════════════════════════════════════════════════════════
+function fmtHour(h) {
+  if (h === 0)  return '12am';
+  if (h < 12)   return `${h}am`;
+  if (h === 12) return '12pm';
+  return `${h - 12}pm`;
+}
+
+function scoreColor(pct) {
+  if (pct >= 75) return '#4ade80';
+  if (pct >= 50) return '#fbbf24';
+  if (pct >= 25) return '#fb923c';
+  return '#f87171';
+}
+function badgeClass(label) {
+  return { Ideal:'badge-ideal', Good:'badge-good', Fair:'badge-fair', Poor:'badge-poor' }[label];
+}
+function getLabel(score) {
+  if (score >= 0.75) return 'Ideal';
+  if (score >= 0.50) return 'Good';
+  if (score >= 0.25) return 'Fair';
+  return 'Poor';
+}
+function barBg(isDark, isRain, tooHot, score) {
+  if (isDark)       return '#131f13';
+  if (isRain)       return '#1a3050';
+  if (tooHot)       return '#4a1500';
+  if (score > 0.7)  return '#1a4020';
+  return '#1c2e1c';
+}
+
+// ══════════════════════════════════════════════════════════
+//  SCORING
+// ══════════════════════════════════════════════════════════
+const MAX_TEMP = 25, MIN_TEMP = -5;
+
+function scoreHour(h, temp, rain, wind, sunriseH, sunsetH, cfg) {
+  let s = 1.0;
+  const tags = [];
+  const isDark = h < sunriseH || h >= sunsetH;
+
+  // Time window filter (hard block)
+  if (h < cfg.earliestHour || h >= cfg.latestHour) {
+    return { score: 0, tags: [`⏰ Outside ${fmtHour(cfg.earliestHour)}–${fmtHour(cfg.latestHour)} window`], blocked: true };
+  }
+
+  // Darkness
+  if (isDark) {
+    if (cfg.avoidDark) { s *= 0.3; tags.push('🌙 Dark'); }
+    else tags.push('🌙 Dark (ok)');
+  } else {
+    tags.push('☀️ Daylight');
+  }
+
+  // Rain — modified by owner rain sensitivity
+  const rainMult = cfg.ownerRainSens === 'low' ? 1.4 : cfg.ownerRainSens === 'high' ? 0.6 : 1.0;
+  if      (rain > 5)   { s *= 0.04 * rainMult; tags.push('⛈️ Heavy rain'); }
+  else if (rain > 2)   { s *= 0.18 * rainMult; tags.push('🌧️ Rain'); }
+  else if (rain > 0.5) { s *= 0.42 * rainMult; tags.push('🌦️ Light rain'); }
+  else if (rain > 0.1) { s *= 0.75 * rainMult; tags.push('💧 Drizzle'); }
+  else                 { tags.push('🌤️ Dry'); }
+
+  // Temperature — adjusted for dog coat
+  const coldBoost  = cfg.dogCoatType === 'thick' ? 1.3 : cfg.dogCoatType === 'thin' ? 0.7 : 1.0;
+  const hotPenalty = cfg.dogCoatType === 'thick' ? 0.6 : cfg.dogCoatType === 'thin' ? 1.2 : 1.0;
+  const sizeMult   = cfg.dogSize === 'small' ? 0.85 : cfg.dogSize === 'large' ? 1.1 : 1.0;
+
+  if      (temp > MAX_TEMP)  { s *= 0.05 * hotPenalty;  tags.push('🔥 Too hot'); }
+  else if (temp > 22)        { s *= 0.65 * hotPenalty;  tags.push(`🌡️ ${temp.toFixed(0)}°C warm`); }
+  else if (temp < MIN_TEMP)  { s *= 0.05 * coldBoost;   tags.push('🥶 Too cold'); }
+  else if (temp < 2)         { s *= 0.45 * coldBoost * sizeMult; tags.push(`❄️ ${temp.toFixed(0)}°C`); }
+  else if (temp >= 8 && temp <= 18) { tags.push(`🌿 ${temp.toFixed(0)}°C`); }
+  else                       { tags.push(`🌡️ ${temp.toFixed(0)}°C`); }
+
+  // Wind
+  if      (wind > 50) { s *= 0.4;  tags.push('💨 Strong wind'); }
+  else if (wind > 30) { s *= 0.78; tags.push('🌬️ Breezy'); }
+
+  return { score: Math.max(0, Math.min(1, s)), tags, blocked: false };
+}
+
+// ══════════════════════════════════════════════════════════
+//  KIT RECOMMENDATIONS
+// ══════════════════════════════════════════════════════════
+function getKitRecommendations(slot) {
+  const items = [];
+  const { temp, rain, wind } = slot;
+  const { dogSize, dogCoatType } = state.config;
+
+  // Footwear
+  if (rain > 2 || (rain > 0.5 && temp < 8)) {
+    items.push({ icon: '🥾', text: 'Waterproof boots', urgency: 'urgent' });
+  } else if (rain > 0.1) {
+    items.push({ icon: '👟', text: 'Water-resistant shoes', urgency: 'warn' });
+  } else if (temp < 2) {
+    items.push({ icon: '🥾', text: 'Warm, grippy boots', urgency: 'warn' });
+  } else {
+    items.push({ icon: '👟', text: 'Trainers fine', urgency: 'normal' });
+  }
+
+  // Owner coat
+  if (rain > 2) {
+    items.push({ icon: '🧥', text: 'Waterproof coat', urgency: 'urgent' });
+  } else if (rain > 0.1) {
+    items.push({ icon: '🧥', text: 'Light waterproof', urgency: 'warn' });
+  } else if (temp < 5) {
+    items.push({ icon: '🧥', text: 'Warm coat', urgency: 'warn' });
+  } else if (temp < 12) {
+    items.push({ icon: '🧶', text: 'Layers recommended', urgency: 'normal' });
+  } else if (temp > 20) {
+    items.push({ icon: '👕', text: 'Light clothing', urgency: 'normal' });
+  }
+
+  // Gloves / hat
+  if (temp < 5) items.push({ icon: '🧤', text: 'Gloves & hat', urgency: 'warn' });
+  else if (temp < 2) items.push({ icon: '🧤', text: 'Gloves & hat', urgency: 'urgent' });
+
+  // Dog coat
+  const dogNeedsCoat = (dogCoatType === 'thin' && temp < 10) ||
+                       (dogCoatType === 'medium' && temp < 5) ||
+                       (dogSize === 'small' && temp < 8);
+  if (dogNeedsCoat) items.push({ icon: '🐕', text: 'Dog coat needed', urgency: 'urgent' });
+
+  // Dog paw protection
+  if (temp > 22) items.push({ icon: '🐾', text: 'Check pavement temp', urgency: 'urgent' });
+
+  // Umbrella
+  if (rain > 0.5 && wind < 25) items.push({ icon: '☂️', text: 'Umbrella', urgency: 'warn' });
+
+  // Bag/bags
+  if (rain > 0.1) items.push({ icon: '🛍️', text: 'Poo bags (waterproof pocket)', urgency: 'normal' });
+  else items.push({ icon: '🛍️', text: 'Poo bags', urgency: 'normal' });
+
+  // Water
+  if (temp > 18) items.push({ icon: '💧', text: 'Water & bowl', urgency: temp > 22 ? 'urgent' : 'warn' });
+
+  // Torch
+  const isDarkSlot = slot.h < slot.sunriseH || slot.h >= slot.sunsetH;
+  if (isDarkSlot) items.push({ icon: '🔦', text: 'Torch / head lamp', urgency: 'urgent' });
+
+  return items;
+}
+
+// ══════════════════════════════════════════════════════════
+//  WEATHER FETCH
+// ══════════════════════════════════════════════════════════
+async function fetchWeather() {
+  if (!state.location) return;
+  state.loading = true; state.error = null; render();
+  try {
+    const { lat, lon } = state.location;
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}` +
+      `&hourly=temperature_2m,precipitation,windspeed_10m` +
+      `&daily=sunrise,sunset&timezone=Europe%2FLondon&forecast_days=3`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('bad response');
+    state.weather = await res.json();
+  } catch {
+    state.error = 'Could not load weather data. Check your connection.';
+  }
+  state.loading = false; render();
+}
+
+async function getGPS() {
+  return new Promise((resolve, reject) => {
+    if (!navigator.geolocation) { reject(new Error('GPS not available on this device.')); return; }
+    navigator.geolocation.getCurrentPosition(async pos => {
+      const { latitude: lat, longitude: lon } = pos.coords;
+      try {
+        const r = await fetch(`https://api.postcodes.io/postcodes?lon=${lon}&lat=${lat}&limit=1`);
+        const d = await r.json();
+        const pc    = d?.result?.[0]?.postcode ?? 'Your location';
+        const place = d?.result?.[0]?.parish ?? d?.result?.[0]?.admin_district ?? '';
+        saveLocation({ lat, lon, label: place || pc });
+      } catch { saveLocation({ lat, lon, label: 'Your location' }); }
+      resolve();
+    }, () => reject(new Error('Location access denied. Please enter a postcode instead.')));
+  });
+}
+
+async function lookupPostcode(pc) {
+  const clean = pc.replace(/\s/g,'').toUpperCase();
+  const res = await fetch(`https://api.postcodes.io/postcodes/${encodeURIComponent(clean)}`);
+  if (!res.ok) throw new Error('Postcode not found. Try again.');
+  const d = await res.json();
+  const { latitude: lat, longitude: lon, postcode, admin_district } = d.result;
+  return { lat, lon, label: admin_district ? `${postcode} · ${admin_district}` : postcode };
+}
+
+// ══════════════════════════════════════════════════════════
+//  PROCESS DAY
+// ══════════════════════════════════════════════════════════
+function processDay(dayIndex) {
+  const w = state.weather;
+  if (!w) return null;
+  const target = new Date(); target.setDate(target.getDate() + dayIndex);
+  const dateStr = target.toISOString().split('T')[0];
+  const di = w.daily.time.indexOf(dateStr);
+  if (di === -1) return null;
+  const sunriseH = new Date(w.daily.sunrise[di]).getHours();
+  const sunsetH  = new Date(w.daily.sunset[di]).getHours();
+  const curH = dayIndex === 0 ? new Date().getHours() : 0;
+  const slots = [];
+  for (let h = 0; h < 24; h++) {
+    const ts  = `${dateStr}T${String(h).padStart(2,'0')}:00`;
+    const idx = w.hourly.time.indexOf(ts);
+    if (idx === -1) continue;
+    const temp = w.hourly.temperature_2m[idx];
+    const rain = w.hourly.precipitation[idx];
+    const wind = w.hourly.windspeed_10m[idx];
+    const { score, tags, blocked } = scoreHour(h, temp, rain, wind, sunriseH, sunsetH, state.config);
+    const isPast = dayIndex === 0 && h < curH;
+    slots.push({ h, temp, rain, wind, score, tags, blocked, label: getLabel(score), isPast, sunriseH, sunsetH });
+  }
+  return { slots, sunriseH, sunsetH, dateStr };
+}
+
+// ══════════════════════════════════════════════════════════
+//  RENDER — walk slot
+// ══════════════════════════════════════════════════════════
+function renderSlot(slot, rank) {
+  const medals = ['🥇','🥈','🥉'];
+  const pct = Math.round(slot.score * 100);
+  const col = scoreColor(pct);
+  const kitItems = getKitRecommendations(slot);
+  const kitHTML = kitItems.map(k =>
+    `<div class="kit-item ${k.urgency === 'urgent' ? 'urgent' : k.urgency === 'warn' ? 'warn' : ''}">
+      ${k.icon} ${k.text}
+    </div>`
+  ).join('');
+  return `
+    <div class="walk-slot ${rank === 0 ? 'best' : ''}">
+      <div class="slot-header">
+        <div class="slot-time">
+          ${medals[rank] ? `<span class="slot-medal">${medals[rank]}</span>` : ''}
+          <span class="slot-hour">${fmtHour(slot.h)}–${fmtHour(slot.h + 1)}</span>
+        </div>
+        <span class="slot-badge ${badgeClass(slot.label)}">${slot.label}</span>
+      </div>
+      <div class="score-row">
+        <div class="score-track">
+          <div class="score-fill" style="width:${pct}%;background:${col}"></div>
+        </div>
+        <span class="score-pct" style="color:${col}">${pct}%</span>
+      </div>
+      <div class="slot-tags">${slot.tags.map(t=>`<span class="slot-tag">${t}</span>`).join('')}</div>
+      <div class="kit-title" style="font-size:11px;font-weight:700;color:var(--muted2);text-transform:uppercase;letter-spacing:0.8px;margin-top:2px">What to wear</div>
+      <div class="kit-items">${kitHTML}</div>
+    </div>`;
+}
+
+// ══════════════════════════════════════════════════════════
+//  RENDER — glance chart
+// ══════════════════════════════════════════════════════════
+function renderGlance(slots) {
+  const MAX_H = 64;
+  const bars = slots.map(s => {
+    const isDark = s.h < s.sunriseH || s.h >= s.sunsetH;
+    const isRain = s.rain > 0.5;
+    const tooHot = s.temp > MAX_TEMP;
+    const h = s.blocked ? 8 : isDark ? 12 : Math.max(12, Math.round(12 + s.score * (MAX_H - 12)));
+    const bg = s.blocked ? '#0f0f0f' : barBg(isDark, isRain, tooHot, s.score);
+    const bdr = !s.blocked && !isDark && !isRain && !tooHot && s.score > 0.65 ? '1px solid #4ade8066' : '1px solid transparent';
+    return `<div class="glance-bar" title="${fmtHour(s.h)}: ${s.temp.toFixed(1)}°C, ${s.rain.toFixed(1)}mm"
+      style="height:${h}px;background:${bg};border:${bdr}${s.isPast?';opacity:0.3':''};${s.blocked?'border-top:1px dashed #222':''}"></div>`;
+  });
+  const labels = slots.map(s =>
+    `<div class="glance-label-slot">${s.h % 6 === 0 ? `<span>${fmtHour(s.h)}</span>` : ''}</div>`
+  );
+  return `
+    <div class="glance-card">
+      <div class="glance-bars">${bars.join('')}</div>
+      <div class="glance-labels">${labels.join('')}</div>
+      <div class="glance-legend">
+        <div class="legend-item"><div class="legend-swatch" style="background:#1a4020;border:1px solid #4ade8066"></div><span class="legend-text">Good window</span></div>
+        <div class="legend-item"><div class="legend-swatch" style="background:#1a3050"></div><span class="legend-text">Rain</span></div>
+        <div class="legend-item"><div class="legend-swatch" style="background:#4a1500"></div><span class="legend-text">Too hot</span></div>
+        <div class="legend-item"><div class="legend-swatch" style="background:#131f13"></div><span class="legend-text">Night</span></div>
+        <div class="legend-item"><div class="legend-swatch" style="background:#0f0f0f;border-top:1px dashed #333"></div><span class="legend-text">Outside hours</span></div>
+      </div>
+    </div>`;
+}
+
+// ══════════════════════════════════════════════════════════
+//  RENDER — settings modal
+// ══════════════════════════════════════════════════════════
+function hourOptions(selected) {
+  let html = '';
+  for (let h = 0; h <= 23; h++) {
+    html += `<option value="${h}" ${h===selected?'selected':''}>${fmtHour(h)}</option>`;
+  }
+  return html;
+}
+
+function renderModal() {
+  const { config, modalTab, location, locError, postcodeInput, postcodeLoading } = state;
+
+  let body = '';
+
+  if (modalTab === 'location') {
+    body = `
+      ${location ? `<div class="current-loc">📍 <strong>${location.label}</strong><br>
+        <span style="font-size:11px;color:var(--muted2)">${location.lat.toFixed(4)}, ${location.lon.toFixed(4)}</span>
+      </div>` : ''}
+      <div class="setting-group">
+        <div class="setting-label">Detect automatically</div>
+        <button class="loc-btn" id="gps-btn">
+          <span class="loc-icon">📡</span>
+          <div><div>Use my current location</div><div class="loc-desc">Requires location permission</div></div>
+          <div id="gps-spinner" style="display:none;margin-left:auto"><div class="spinner"></div></div>
+        </button>
+      </div>
+      <div class="setting-group">
+        <div class="setting-label">Enter a postcode</div>
+        <div class="postcode-row">
+          <input class="postcode-input" id="postcode-input" type="text"
+            placeholder="e.g. PO7 7SR" maxlength="8" value="${postcodeInput}" />
+          <button class="postcode-go" id="postcode-go">
+            ${postcodeLoading ? '<div class="spinner" style="margin:0 auto"></div>' : 'Search'}
+          </button>
+        </div>
+        ${locError ? `<div class="error-hint">${locError}</div>` : ''}
+      </div>`;
+  }
+
+  if (modalTab === 'schedule') {
+    body = `
+      <div class="setting-group">
+        <div class="setting-label">Walk window</div>
+        <div class="setting-desc">Only show walk slots within these hours</div>
+        <div class="time-row" style="margin-top:8px">
+          <select class="time-select" id="cfg-earliest">${hourOptions(config.earliestHour)}</select>
+          <span class="time-arrow">→</span>
+          <select class="time-select" id="cfg-latest">${hourOptions(config.latestHour)}</select>
+        </div>
+      </div>
+      <div class="setting-group">
+        <div class="setting-label">Slots to show</div>
+        <div class="setting-desc">Number of recommended walk times displayed</div>
+        <div class="num-row" style="margin-top:8px">
+          <button class="num-btn" id="slots-dec">−</button>
+          <span class="num-val" id="slots-val">${config.numSlots}</span>
+          <button class="num-btn" id="slots-inc">+</button>
+          <span style="font-size:13px;color:var(--muted);margin-left:4px">slots</span>
+        </div>
+      </div>
+      <div class="setting-group">
+        <div class="toggle-row">
+          <div class="toggle-info">
+            <div class="toggle-name">Avoid dark hours</div>
+            <div class="toggle-sub">Penalise slots before sunrise or after sunset</div>
+          </div>
+          <label class="toggle">
+            <input type="checkbox" id="cfg-avoidDark" ${config.avoidDark ? 'checked' : ''}>
+            <div class="toggle-track"></div>
+            <div class="toggle-thumb"></div>
+          </label>
+        </div>
+      </div>`;
+  }
+
+  if (modalTab === 'prefs') {
+    const sizes    = ['small','medium','large'];
+    const coats    = ['thin','medium','thick'];
+    const rainSens = ['low','medium','high'];
+    const sizeLabels    = { small:'Small',    medium:'Medium', large:'Large' };
+    const coatLabels    = { thin:'Thin coat', medium:'Medium', thick:'Thick coat' };
+    const rainLabels    = { low:'Rain? Fine', medium:'Prefer dry', high:'Hate rain' };
+    const sizeDesc      = { small:'e.g. Chihuahua, Jack Russell', medium:'e.g. Spaniel, Labrador', large:'e.g. Husky, German Shepherd' };
+    const coatDesc      = { thin:'Short-haired breeds, greyhounds', medium:'Most breeds', thick:'Huskies, Border Collies' };
+
+    body = `
+      <div class="setting-group">
+        <div class="setting-label">Number of dogs</div>
+        <div class="num-row" style="margin-top:8px">
+          <button class="num-btn" id="dogs-dec">−</button>
+          <span class="num-val" id="dogs-val">${config.numDogs}</span>
+          <button class="num-btn" id="dogs-inc">+</button>
+          <span style="font-size:13px;color:var(--muted);margin-left:4px">dog${config.numDogs !== 1 ? 's' : ''}</span>
+        </div>
+      </div>
+      <div class="setting-group">
+        <div class="setting-label">Dog size</div>
+        <div class="setting-desc">${sizeDesc[config.dogSize]}</div>
+        <div class="pill-group" style="margin-top:8px">
+          ${sizes.map(s => `<button class="pill ${config.dogSize===s?'active':''}" onclick="setCfg('dogSize','${s}')">${sizeLabels[s]}</button>`).join('')}
+        </div>
+      </div>
+      <div class="setting-group">
+        <div class="setting-label">Dog coat type</div>
+        <div class="setting-desc">${coatDesc[config.dogCoatType]}</div>
+        <div class="pill-group" style="margin-top:8px">
+          ${coats.map(c => `<button class="pill ${config.dogCoatType===c?'active':''}" onclick="setCfg('dogCoatType','${c}')">${coatLabels[c]}</button>`).join('')}
+        </div>
+      </div>
+      <div class="setting-group">
+        <div class="setting-label">Your rain tolerance</div>
+        <div class="setting-desc">Adjusts how much rain penalises a slot</div>
+        <div class="pill-group" style="margin-top:8px">
+          ${rainSens.map(r => `<button class="pill ${config.ownerRainSens===r?'active':''}" onclick="setCfg('ownerRainSens','${r}')">${rainLabels[r]}</button>`).join('')}
+        </div>
+      </div>`;
+  }
+
+  return `
+    <div class="modal-overlay ${state.modalOpen ? 'open' : ''}" id="modal-overlay">
+      <div class="modal">
+        <div class="modal-handle"></div>
+        <div class="modal-header">
+          <div class="modal-title">Settings</div>
+          <div class="modal-tabs">
+            <button class="modal-tab ${modalTab==='location'?'active':''}" onclick="setModalTab('location')">📍 Location</button>
+            <button class="modal-tab ${modalTab==='schedule'?'active':''}" onclick="setModalTab('schedule')">🕐 Schedule</button>
+            <button class="modal-tab ${modalTab==='prefs'?'active':''}"   onclick="setModalTab('prefs')">🐕 Dogs</button>
+          </div>
+        </div>
+        <div class="modal-body">${body}</div>
+      </div>
+    </div>`;
+}
+
+// ══════════════════════════════════════════════════════════
+//  MAIN RENDER
+// ══════════════════════════════════════════════════════════
+function render() {
+  const dayData  = state.weather ? processDay(state.day) : null;
+  const cfg      = state.config;
+  const locLabel = state.location?.label ?? '';
+
+  const eligible  = dayData ? dayData.slots.filter(s => !s.isPast && !s.blocked) : [];
+  const topSlots  = [...eligible].sort((a,b) => b.score - a.score).slice(0, cfg.numSlots);
+  const sunInfo   = dayData ? `🌅 ${fmtHour(dayData.sunriseH)} · 🌇 ${fmtHour(dayData.sunsetH)}` : '';
+
+  let mainContent = '';
+
+  if (!state.location) {
+    mainContent = `<div class="state-screen">
+      <div class="state-icon">🐾</div>
+      <div class="state-text">Set your location to find the best walk times</div>
+      <div class="state-sub">Tap ⚙ above to get started</div>
+    </div>`;
+  } else if (state.loading) {
+    mainContent = `<div class="state-screen">
+      <div class="state-icon">🌤️</div>
+      <div class="state-text">Loading weather for ${locLabel}…</div>
+    </div>`;
+  } else if (state.error) {
+    mainContent = `<div class="state-screen">
+      <div class="state-icon">⚠️</div>
+      <div class="state-text">${state.error}</div>
+      <button class="retry-btn" onclick="fetchWeather()">Try again</button>
+    </div>`;
+  } else if (dayData) {
+    mainContent = `
+      <div class="day-tabs">
+        ${['Today','Tomorrow','In 2 days'].map((l,i)=>`
+          <button class="day-tab ${state.day===i?'active':''}" onclick="setDay(${i})">${l}</button>`).join('')}
+      </div>
+
+      <div class="section-label">Best walk windows · ${fmtHour(cfg.earliestHour)}–${fmtHour(cfg.latestHour)}</div>
+      ${topSlots.length === 0
+        ? `<div class="no-walk">⚠️ No suitable walk windows within your set hours. Try adjusting your schedule in settings, or consider a very short toilet trip only.</div>`
+        : `<div style="display:flex;flex-direction:column;gap:10px">${topSlots.map((s,i)=>renderSlot(s,i)).join('')}</div>`}
+
+      <div class="section-label">Day at a glance</div>
+      ${renderGlance(dayData.slots)}
+
+      <div class="section-label">Safety reminders</div>
+      <div class="safety-card">
+        <div class="safety-row"><span class="safety-icon">🌡️</span><span class="safety-text">Don't walk above ${MAX_TEMP}°C — hot pavements burn paws in minutes</span></div>
+        <div class="safety-row"><span class="safety-icon">🌅</span><span class="safety-text">Daylight today: ${fmtHour(dayData.sunriseH)}–${fmtHour(dayData.sunsetH)}</span></div>
+        <div class="safety-row"><span class="safety-icon">💧</span><span class="safety-text">Even light rain makes dogs cold and surfaces slippery</span></div>
+        <div class="safety-row"><span class="safety-icon">🐾</span><span class="safety-text">Two walks a day? Pick your two best ranked slots above</span></div>
+        ${cfg.dogCoatType === 'thin' ? `<div class="safety-row"><span class="safety-icon">🧥</span><span class="safety-text">Short-coated dog — consider a dog jacket below 8°C</span></div>` : ''}
+        ${cfg.dogSize === 'small' ? `<div class="safety-row"><span class="safety-icon">🐩</span><span class="safety-text">Small dogs lose heat faster — limit time out in cold or wet</span></div>` : ''}
+      </div>`;
+  }
+
+  document.getElementById('app').innerHTML = `
+    <header>
+      <div class="header-inner">
+        <div class="brand">
+          <span class="brand-icon">🐕</span>
+          <div>
+            <div class="brand-title">Walk Planner</div>
+            <div class="brand-sub">${locLabel
+              ? `📍 ${locLabel}${sunInfo ? ' · ' + sunInfo : ''}`
+              : 'Set your location to begin'}</div>
+          </div>
+        </div>
+        <button class="settings-btn" onclick="openModal()" title="Settings">⚙</button>
+      </div>
+    </header>
+    <main>${mainContent}</main>
+    ${renderModal()}`;
+
+  bindEvents();
+}
+
+// ══════════════════════════════════════════════════════════
+//  EVENT BINDING
+// ══════════════════════════════════════════════════════════
+function bindEvents() {
+  // Modal dismiss
+  const overlay = document.getElementById('modal-overlay');
+  if (overlay) overlay.addEventListener('click', e => { if (e.target === overlay) closeModal(); });
+
+  // GPS
+  const gpsBtn = document.getElementById('gps-btn');
+  if (gpsBtn) gpsBtn.addEventListener('click', async () => {
+    document.getElementById('gps-spinner').style.display = 'block';
+    gpsBtn.disabled = true; state.locError = null;
+    try { await getGPS(); closeModal(); fetchWeather(); }
+    catch (e) { state.locError = e.message; render(); }
+  });
+
+  // Postcode
+  const pcIn = document.getElementById('postcode-input');
+  if (pcIn) {
+    pcIn.addEventListener('input', e => { state.postcodeInput = e.target.value; });
+    pcIn.addEventListener('keydown', e => { if (e.key === 'Enter') doPostcode(); });
+  }
+  const pcGo = document.getElementById('postcode-go');
+  if (pcGo) pcGo.addEventListener('click', doPostcode);
+
+  // Schedule tab
+  const earliest = document.getElementById('cfg-earliest');
+  if (earliest) earliest.addEventListener('change', e => {
+    state.config.earliestHour = +e.target.value;
+    if (state.config.earliestHour >= state.config.latestHour) state.config.latestHour = state.config.earliestHour + 1;
+    saveConfig(); render();
+  });
+  const latest = document.getElementById('cfg-latest');
+  if (latest) latest.addEventListener('change', e => {
+    state.config.latestHour = +e.target.value;
+    if (state.config.latestHour <= state.config.earliestHour) state.config.earliestHour = state.config.latestHour - 1;
+    saveConfig(); render();
+  });
+
+  const slotsInc = document.getElementById('slots-inc');
+  const slotsDec = document.getElementById('slots-dec');
+  if (slotsInc) slotsInc.addEventListener('click', () => { if (state.config.numSlots < 5) { state.config.numSlots++; saveConfig(); render(); } });
+  if (slotsDec) slotsDec.addEventListener('click', () => { if (state.config.numSlots > 1) { state.config.numSlots--; saveConfig(); render(); } });
+
+  const avoidDark = document.getElementById('cfg-avoidDark');
+  if (avoidDark) avoidDark.addEventListener('change', e => { state.config.avoidDark = e.target.checked; saveConfig(); render(); });
+
+  // Prefs tab
+  const dogsInc = document.getElementById('dogs-inc');
+  const dogsDec = document.getElementById('dogs-dec');
+  if (dogsInc) dogsInc.addEventListener('click', () => { if (state.config.numDogs < 6) { state.config.numDogs++; saveConfig(); render(); } });
+  if (dogsDec) dogsDec.addEventListener('click', () => { if (state.config.numDogs > 1) { state.config.numDogs--; saveConfig(); render(); } });
+}
+
+// ══════════════════════════════════════════════════════════
+//  ACTIONS
+// ══════════════════════════════════════════════════════════
+function openModal()       { state.modalOpen = true;  render(); }
+function closeModal()      { state.modalOpen = false; render(); }
+function setDay(d)         { state.day = d; render(); }
+function setModalTab(t)    { state.modalTab = t; render(); }
+function setCfg(key, val)  { state.config[key] = val; saveConfig(); render(); }
+
+async function doPostcode() {
+  const val = state.postcodeInput.trim();
+  if (!val) return;
+  state.postcodeLoading = true; state.locError = null; render();
+  try {
+    const loc = await lookupPostcode(val);
+    saveLocation(loc); state.postcodeLoading = false;
+    closeModal(); fetchWeather();
+  } catch (e) {
+    state.locError = e.message; state.postcodeLoading = false; render();
+  }
+}
+
+// ══════════════════════════════════════════════════════════
+//  BOOT
+// ══════════════════════════════════════════════════════════
+loadState();
+render();
+if (state.location) fetchWeather();
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js'));
+}
+</script>
+</body>
+</html>
